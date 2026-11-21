@@ -5,7 +5,10 @@ on:
       - 'seoul_web.py'
       - 'web/**'
       - 'core/**'
+      - 'menus/**'
       - 'tests/**'
+      - 'app.py'
+      - 'seoul_ia_fivem.py'
       - '.github/workflows/seoul-tests.yml'
   workflow_dispatch:
 permissions:
@@ -22,3 +25,7 @@ jobs:
         run: python -m compileall -q .
       - name: Run Seoul web smoke tests
         run: python -m unittest discover -s tests -p 'test_seoul_web.py' -v
+      - name: Install pytest
+        run: python -m pip install pytest
+      - name: Run CLI and framework smoke tests
+        run: python -m pytest tests/test_smoke.py -v
