@@ -1,6 +1,6 @@
 # SEOUL IA FIVEM
 
-Desenvolvimento Seoul Developer. Baseado no projeto MZ AI FIVEM Community v2 de Mazus-Ofc; créditos originais preservados.
+Desenvolvimento e identidade Seoul Developer. Informações de procedência e atribuição do código de terceiros em `THIRD_PARTY_NOTICES.md`.
 
 ## Detector automático de frameworks
 
@@ -25,10 +25,13 @@ CLI local para trabalhar com projetos FiveM usando Ollama + Aider, com foco em s
 ## Requisitos
 - Python 3.11+
 - Git
-- Ollama
-- Aider
+- Ollama (opcional para o painel online)
+- Aider (necessário para edição assistida pela CLI)
 
 ## Uso
+
+No Windows, execute `INSTALAR_SEOUL.bat` e depois `ABRIR_PAINEL_SEOUL.bat` para o painel web ou `INICIAR_SEOUL.bat` para o menu original.
+
 ```bash
 python app.py
 ```
