@@ -1,4 +1,4 @@
-# Regras internas do MZ AI FIVEM
+# Regras internas do Seoul IA FiveM
 
 - O projeto atual do usuário sempre tem prioridade máxima.
 - Scripts com o prefixo custom do projeto são scripts do usuário.
