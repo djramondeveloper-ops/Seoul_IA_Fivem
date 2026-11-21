@@ -26,4 +26,4 @@ O chat web envia mensagens a modelos reais, mas **não modifica arquivos**. Para
 4. Envie uma pergunta no chat. A primeira resposta pode demorar enquanto o modelo carrega.
 5. Se aparecer erro de conexão, confirme que o aplicativo Ollama está em execução.
 
-Projeto Seoul Developer baseado no MZ AI FIVEM Community v2 de Mazus-Ofc. Preserve os avisos de autoria e licença aplicáveis ao código original.
+Seoul Developer. Informações sobre componentes de terceiros e atribuição em `THIRD_PARTY_NOTICES.md`.
