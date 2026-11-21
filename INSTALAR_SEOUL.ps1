@@ -13,9 +13,38 @@ function Install-Winget($id,$label) {
   if ($LASTEXITCODE -ne 0) { throw "Falha ao instalar $label (codigo $LASTEXITCODE)." }
   Refresh-Path
 }
+function Test-Python($exe, $argsPrefix) {
+  if (-not $exe) { return $false }
+  try {
+    $oldPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $output = & $exe @argsPrefix -c "import sys; print('SEOUL_PY_OK' if sys.version_info >= (3,11) else 'SEOUL_PY_OLD')" 2>$null
+    $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = $oldPreference
+    return ($exitCode -eq 0 -and ($output -join "") -match 'SEOUL_PY_OK')
+  } catch {
+    $ErrorActionPreference = "Stop"
+    return $false
+  }
+}
 function Python-Command {
-  if (Has py) { & py -3.11 -c "import sys;exit(0 if sys.version_info >= (3,11) else 1)" 2>$null; if ($LASTEXITCODE -eq 0) { return @("py","-3.11") } }
-  if (Has python) { & python -c "import sys;exit(0 if sys.version_info >= (3,11) else 1)" 2>$null; if ($LASTEXITCODE -eq 0) { return @("python") } }
+  if (Has py) {
+    if (Test-Python "py" @("-3.11")) { return ,@("py","-3.11") }
+    if (Test-Python "py" @("-3")) { return ,@("py","-3") }
+  }
+  if (Has python) {
+    $command = Get-Command python -ErrorAction SilentlyContinue
+    if ($command.Source -notlike '*WindowsApps*' -and (Test-Python "python" @())) {
+      return ,@("python")
+    }
+  }
+  $locations = @(
+    (Join-Path $env:LOCALAPPDATA "Programs\\Python\\Python311\\python.exe"),
+    (Join-Path $env:ProgramFiles "Python311\\python.exe")
+  )
+  foreach ($location in $locations) {
+    if ((Test-Path $location) -and (Test-Python $location @())) { return ,@($location) }
+  }
   return $null
 }
 Step "Verificando Python 3.11+"
@@ -23,7 +52,7 @@ $python = Python-Command
 if (-not $python) {
   Install-Winget "Python.Python.3.11" "Python 3.11"
   $python = Python-Command
-  if (-not $python) { throw "Python instalado, mas nao detectado. Feche e abra o terminal e tente novamente." }
+  if (-not $python) { throw "Python instalado, mas nao detectado nesta sessao. Feche o terminal e execute o instalador novamente. Se necessario, desative os aliases python.exe/python3.exe da Microsoft Store em Configuracoes > Aplicativos > Aliases de execucao do aplicativo." }
 }
 Step "Verificando Git"
 if (-not (Has git)) { Install-Winget "Git.Git" "Git" }
@@ -36,7 +65,7 @@ if (-not (Has ollama)) {
 Step "Preparando ambiente Python isolado"
 $venv = Join-Path $root ".venv"
 if (-not (Test-Path (Join-Path $venv "Scripts\python.exe"))) {
-  if ($python.Count -eq 2) { & py -3.11 -m venv $venv } else { & python -m venv $venv }
+  if ($python.Count -eq 2) { & $python[0] $python[1] -m venv $venv } else { & $python[0] -m venv $venv }
   if ($LASTEXITCODE -ne 0) { throw "Falha ao criar ambiente Python." }
 }
 $vp = Join-Path $venv "Scripts\python.exe"
