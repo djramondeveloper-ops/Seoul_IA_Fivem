@@ -60,7 +60,7 @@ def render_header(title: str, rows: Iterable[tuple[str, str]] | None = None, sub
     width = 58
     clear_screen()
     print("=" * width)
-    print("                     MZ AI FIVEM")
+    print("                     SEOUL IA FIVEM")
     print("=" * width)
     if subtitle:
         print(subtitle)
