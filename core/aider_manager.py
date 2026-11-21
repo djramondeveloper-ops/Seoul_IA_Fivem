@@ -151,7 +151,7 @@ class AiderManager:
         return normalized
 
     def _build_command(self, repo_root: Path, scope_dir: Path, model: str, prompt: str, settings, read_files: Iterable[str | Path] | None = None, subtree_only: bool = True, map_tokens: int = 0, framework_ignore: Iterable[str] | None = None) -> list[str]:
-        model_name = model if str(model).startswith("ollama/") else f"ollama/{model}"
+        model_name = model if str(model).startswith(("ollama/", "gemini/", "openai/")) else f"ollama/{model}"
         cmd: list[str] = [
             settings.aider_command,
             "--model",
@@ -206,6 +206,17 @@ class AiderManager:
         env = os.environ.copy()
         env["PYTHONIOENCODING"] = "utf-8"
         env.pop("TERM", None)
+        # Credentials stay in environment variables, not arguments or project files.
+        if model.startswith("gemini/") and not env.get("GEMINI_API_KEY"):
+            msg = "GEMINI_API_KEY ausente. Configure a variavel de ambiente para usar Gemini."
+            print(msg)
+            return AiderRunResult(returncode=2, output=msg, command=cmd, scope_dir=str(scope_dir))
+        if model.startswith("openai/") and not env.get("OPENAI_API_KEY"):
+            msg = "OPENAI_API_KEY ausente. Configure a variavel de ambiente para usar OpenAI."
+            print(msg)
+            return AiderRunResult(returncode=2, output=msg, command=cmd, scope_dir=str(scope_dir))
+        if model.startswith("ollama/") or "/" not in model:
+            env["OLLAMA_API_BASE"] = settings.ollama_api_base
 
         try:
             process = subprocess.Popen(
