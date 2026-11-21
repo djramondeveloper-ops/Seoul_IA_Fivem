@@ -212,14 +212,41 @@ class MainMenu:
             pause()
             return
 
-        framework = self._choose_framework_name(settings.default_framework, repo_path)
-        database = ask("Banco", settings.default_db)
-        custom_prefix = ask("Prefixo custom", settings.default_prefix)
-
+        # Read-only discovery. Do not guess when framework evidence is inconclusive.
+        try:
+            discovery = detect_frameworks(repo_path)
+        except (OSError, ValueError) as exc:
+            discovery = {"primary_framework": None, "integrations": {}}
+            print(f"Deteccao automatica indisponivel: {exc}")
+        framework = {"qbox": "QBX", "qbcore": "QBCore", "esx": "ESX", "vrp": "vRP"}.get(discovery["primary_framework"])
+        if not framework:
+            print("Framework inconclusivo: escolha manualmente.")
+            framework = self._choose_framework_name(settings.default_framework)
+        else:
+            print(f"Framework detectado: {framework}")
+            if discovery.get("hybrid_or_bridge_possible"):
+                print("Aviso: possivel bridge; framework principal selecionado por evidencia.")
+        integrations = discovery.get("integrations", {})
+        databases = integrations.get("database", [])
+        database = databases[0] if databases else settings.default_db
+        custom_prefix = settings.default_prefix
         models = self.ollama.list_models()
-        default_model = ask("Modelo rápido", settings.default_model if settings.default_model in models or not models else models[0])
-        heavy_model = ask("Modelo forte", settings.heavy_model if settings.heavy_model in models or not models else default_model)
-        notes = ask("Observações", f"Scripts com prefixo {custom_prefix} são custom do usuário.")
+        default_model = settings.default_model if settings.default_model in models or not models else models[0]
+        heavy_model = settings.heavy_model if settings.heavy_model in models or not models else default_model
+        notes = (f"Cadastro automatico. Framework: {framework}. "
+                 f"Integracoes detectadas: {integrations}. "
+                 f"Prefixo custom: {custom_prefix}. "
+                 "Verificar manualmente APIs e bridges antes de editar.")
+        print_block("Configuracao automatica", 
+                    f"Framework: {framework}\\nBanco: {database}\\nPrefixo: {custom_prefix}\\n"
+                    f"Modelo rapido: {default_model}\\nModelo forte: {heavy_model}\\n"
+                    f"Integracoes: {integrations}")
+        existing = [p for p in self.projects.list_projects()
+                    if Path(p.repo_path).resolve() == Path(repo_path).resolve()]
+        if existing:
+            print(f"Esta pasta ja esta cadastrada como '{existing[0].name}'. Selecione o projeto existente.")
+            pause()
+            return
 
         if not self.git.is_git_repo(repo_path):
             if settings.allow_non_git:
@@ -236,7 +263,7 @@ class MainMenu:
                     pause()
                     return
 
-        reference_mode, reference_repo_url, reference_local_path = self._reference_setup_for_framework(framework, quick=True)
+        reference_mode, reference_repo_url, reference_local_path = "none", "", ""
         project = self.projects.create_project(
             name=name,
             repo_path=str(Path(repo_path)),
