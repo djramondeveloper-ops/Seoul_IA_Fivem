@@ -1,6 +1,9 @@
 name: Import upstream MZ Agent
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/import-upstream.yml'
 permissions:
   contents: write
 jobs:
