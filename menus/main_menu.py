@@ -53,11 +53,12 @@ class MainMenu:
                 "Corrigir erro / debug guiado",
                 "Criar resource novo",
                 "Comparar resource com referência do framework",
-                "Trocar modelo ativo",
+                "Trocar modelo ativo (local / nuvem)",
                 "Baixar / atualizar modelos recomendados",
                 "Configurar referência do framework no projeto ativo",
                 "Histórico recente / continuar última tarefa",
                 "Identificar framework automaticamente",
+                "Testar provedor de IA",
             ]
             if settings.show_advanced_menu:
                 options.append("Modo avançado (prompt livre)")
@@ -93,8 +94,10 @@ class MainMenu:
                 self.history_menu()
             elif choice == 14:
                 self.detect_project_framework()
+            elif choice == 15:
+                self.test_ai_provider()
             else:
-                if settings.show_advanced_menu and choice == 15:
+                if settings.show_advanced_menu and choice == 16:
                     self.advanced_mode()
                 else:
                     print("Até mais.")
@@ -653,31 +656,90 @@ class MainMenu:
         self._launch_prompt(project, session, settings, prompt, "Comparar com framework", target=inspection.rel_path, working_dir=working_dir, subtree_only=True)
 
     def switch_model(self) -> None:
+        import os
         project, session, _ = self._require_project()
         if not project:
             return
-        self._render_screen("Trocar modelo ativo")
+        self._render_screen("Provedor de IA - local / nuvem")
         options = [
-            f"Rápido ({project.default_model})",
-            f"Forte ({project.heavy_model})",
-            "Escolher manualmente",
+            f"Ollama rapido ({project.default_model})",
+            f"Ollama forte ({project.heavy_model})",
+            "Google Gemini (gemini/gemini-2.5-flash)",
+            "OpenAI (openai/gpt-4.1-mini)",
+            "Escolher modelo Ollama instalado",
+            "Modelo personalizado (prefixo ollama/, gemini/ ou openai/)",
+            "Como configurar chaves de API",
         ]
-        idx = ask_choice("Modelo ativo", options)
+        idx = ask_choice("Escolha o provedor / modelo", options)
         if idx == 0:
-            session.active_model = project.default_model
+            model = project.default_model
         elif idx == 1:
-            session.active_model = project.heavy_model
-        else:
+            model = project.heavy_model
+        elif idx == 2:
+            model = "gemini/gemini-2.5-flash"
+        elif idx == 3:
+            model = "openai/gpt-4.1-mini"
+        elif idx == 4:
             models = self.ollama.list_models()
             if not models:
-                print("Nenhum modelo encontrado no Ollama.")
+                print("Nenhum modelo instalado no Ollama.")
                 pause()
                 return
-            midx = ask_choice("Escolha manualmente", models)
-            session.active_model = models[midx]
+            model = models[ask_choice("Escolha o modelo Ollama", models)]
+        elif idx == 5:
+            model = ask("Modelo completo (ex: gemini/gemini-2.5-flash)").strip()
+            if not model.startswith(("ollama/", "gemini/", "openai/")):
+                print("Use o prefixo ollama/, gemini/ ou openai/.")
+                pause()
+                return
+        else:
+            print("No Windows PowerShell, defina uma variavel de usuario e reabra o terminal:")
+            print('  [Environment]::SetEnvironmentVariable("GEMINI_API_KEY", "SUA_CHAVE", "User")')
+            print('  [Environment]::SetEnvironmentVariable("OPENAI_API_KEY", "SUA_CHAVE", "User")')
+            print("Nunca cole a chave em prints, no GitHub ou no chat.")
+            pause()
+            return
+        key_name = "GEMINI_API_KEY" if model.startswith("gemini/") else ("OPENAI_API_KEY" if model.startswith("openai/") else "")
+        if key_name and not os.environ.get(key_name):
+            print(f"Aviso: {key_name} nao esta configurada neste terminal.")
+            print("O modelo sera salvo, mas a execucao exigira a chave de API.")
+        session.active_model = model
         self.config.save_session(session)
-        print(f"Modelo ativo definido para: {session.active_model}")
+        print(f"Modelo ativo: {session.active_model}")
         pause()
+
+    def test_ai_provider(self) -> None:
+        import os
+        import shutil
+        import subprocess
+        import urllib.request
+        project, session, settings = self._require_project()
+        if not project:
+            return
+        self._render_screen("Testar provedor de IA")
+        model = session.active_model
+        if model.startswith("gemini/"):
+            print("Gemini: chave " + ("configurada" if os.getenv("GEMINI_API_KEY") else "AUSENTE"))
+        elif model.startswith("openai/"):
+            print("OpenAI: chave " + ("configurada" if os.getenv("OPENAI_API_KEY") else "AUSENTE"))
+        else:
+            try:
+                with urllib.request.urlopen(settings.ollama_api_base.rstrip("/") + "/api/tags", timeout=5) as resp:
+                    print("Ollama HTTP: " + ("OK" if resp.status == 200 else str(resp.status)))
+            except Exception as exc:
+                print(f"Ollama indisponivel: {exc}")
+        if not shutil.which(settings.aider_command):
+            print("Aider nao encontrado no PATH.")
+            pause()
+            return
+        if not ask_bool("Executar teste real de resposta da IA (pode consumir creditos na nuvem)", False):
+            pause()
+            return
+        self._launch_prompt(
+            project, session, settings,
+            "Responda apenas: SE OUL IA OK. Nao crie, altere ou exclua arquivos.",
+            "Teste de conexao IA",
+        )
 
     def download_models(self) -> None:
         self._render_screen("Baixar / atualizar modelos")
