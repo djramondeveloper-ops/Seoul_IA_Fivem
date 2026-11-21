@@ -74,6 +74,23 @@ class SeoulWebTests(unittest.TestCase):
         self.assertEqual(json.loads(body)["provider"], "gemini")
         self.assertEqual(len(json.loads(body)["attempts"]), 1)
 
+    def test_ollama_cloud_uses_ollama_endpoint(self):
+        with patch.object(seoul_web, "request_json", return_value={"message": {"content": "resposta cloud"}}) as request:
+            result = seoul_web.chat("ollama_cloud", "glm-5:cloud", [{"role": "user", "content": "oi"}])
+        self.assertEqual(result, "resposta cloud")
+        self.assertEqual(request.call_args.args[0], "http://127.0.0.1:11434/api/chat")
+
+    def test_ollama_cloud_rejects_local_model(self):
+        with self.assertRaises(ValueError):
+            seoul_web.chat("ollama_cloud", "qwen2.5-coder:7b", [{"role": "user", "content": "oi"}])
+
+    def test_cloud_mode_preserves_existing_chat_flow(self):
+        config = {"mode": "cloud", "provider": "ollama_cloud", "model": "glm-5:cloud", "fallbacks": []}
+        with patch.object(seoul_web, "prefs", return_value=config), patch.object(seoul_web, "chat", return_value="nuvem ok"):
+            code, body = self.call("/api/chat", {"message": "Teste", "history": []})
+        self.assertEqual(code, 200)
+        self.assertEqual(json.loads(body)["provider"], "ollama_cloud")
+
     def test_ollama_installed_does_not_download(self):
         with patch.object(seoul_web, "ollama_model_installed", return_value=True), patch.object(seoul_web.threading, "Thread") as thread:
             code, body = self.call("/api/ollama/install", {})
