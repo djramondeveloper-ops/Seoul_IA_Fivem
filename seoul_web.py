@@ -18,6 +18,7 @@ PREFS = ROOT / "data" / "seoul_web_settings.json"
 DEFAULTS = {"mode":"local","provider":"ollama","model":"qwen2.5-coder:7b","fallbacks":[]}
 PROVIDERS = {
  "ollama": {"env":None,"default":"qwen2.5-coder:7b"},
+ "ollama_cloud": {"env":None,"default":"glm-5:cloud"},
  "openai": {"env":"OPENAI_API_KEY","default":"gpt-4.1-mini"},
  "gemini": {"env":"GEMINI_API_KEY","default":"gemini-2.5-flash"},
  "anthropic": {"env":"ANTHROPIC_API_KEY","default":"claude-sonnet-4-5"},
@@ -70,8 +71,9 @@ def request_json(url,payload=None,headers=None,method=None,timeout=60):
 def chat(provider,model,messages):
  if provider not in PROVIDERS: raise ValueError("Provedor inválido")
  key=API_KEYS.get(provider) or os.environ.get(PROVIDERS[provider]["env"] or "", "")
- if provider!="ollama" and not key: raise RuntimeError(f"Chave não configurada: {provider}")
- if provider=="ollama":
+ if provider not in ("ollama","ollama_cloud") and not key: raise RuntimeError(f"Chave não configurada: {provider}")
+ if provider in ("ollama","ollama_cloud"):
+  if provider=="ollama_cloud" and not model.endswith(":cloud"): raise ValueError("Modelo Ollama Cloud deve terminar em :cloud")
   r=request_json("http://127.0.0.1:11434/api/chat",{"model":model,"messages":messages,"stream":False},timeout=180)
   return r["message"]["content"]
  if provider=="gemini":
@@ -111,7 +113,7 @@ class Handler(BaseHTTPRequestHandler):
      state["status"]="ready" if installed else ("unavailable" if installed is None else "missing")
     return self.send(state)
    if self.path=="/api/settings":
-    return self.send({"settings":prefs(),"providers":{k:{"configured":k=="ollama" or bool(API_KEYS.get(k) or os.environ.get(v["env"] or "")),"default":v["default"]} for k,v in PROVIDERS.items()}})
+    return self.send({"settings":prefs(),"providers":{k:{"configured":k in ("ollama","ollama_cloud") or bool(API_KEYS.get(k) or os.environ.get(v["env"] or "")),"default":v["default"]} for k,v in PROVIDERS.items()}})
    return self.send({"error":"Rota desconhecida"},404)
   if self.path not in ("/","/index.html"): return self.send({"error":"Não encontrado"},404)
   html=(ROOT/"web"/"index.html").read_text(encoding="utf-8").replace("__SEOUL_TOKEN__",TOKEN)
@@ -143,14 +145,14 @@ class Handler(BaseHTTPRequestHandler):
     new=prefs()
     for k in ("mode","provider","model","fallbacks"):
      if k in data: new[k]=data[k]
-    if new["mode"] not in ("local","online","auto") or new["provider"] not in PROVIDERS or not isinstance(new["model"],str) or len(new["model"])>150: raise ValueError("Configuração inválida")
+    if new["mode"] not in ("local","online","auto","cloud") or new["provider"] not in PROVIDERS or not isinstance(new["model"],str) or len(new["model"])>150: raise ValueError("Configuração inválida")
     if not isinstance(new["fallbacks"],list) or any(not isinstance(x,dict) or x.get("provider") not in PROVIDERS or not isinstance(x.get("model"),str) for x in new["fallbacks"]): raise ValueError("Fallbacks inválidos")
     PREFS.parent.mkdir(exist_ok=True)
     PREFS.write_text(json.dumps(new,indent=2,ensure_ascii=False),encoding="utf-8")
     return self.send({"ok":True})
    if self.path=="/api/key":
     provider=data.get("provider");key=data.get("key")
-    if provider not in PROVIDERS or provider=="ollama" or not isinstance(key,str) or len(key)>500: raise ValueError("Chave inválida")
+    if provider not in PROVIDERS or provider in ("ollama","ollama_cloud") or not isinstance(key,str) or len(key)>500: raise ValueError("Chave inválida")
     if key: API_KEYS[provider]=key.strip()
     else: API_KEYS.pop(provider,None)
     return self.send({"ok":True})
@@ -167,6 +169,7 @@ class Handler(BaseHTTPRequestHandler):
     primary={"provider":config["provider"],"model":config["model"]}
     candidates=([primary]+config["fallbacks"]) if config["mode"]=="auto" else [primary]
     if config["mode"]=="local": candidates=[{"provider":"ollama","model":config["model"]}]
+    if config["mode"]=="cloud" and config["provider"]=="ollama": raise ValueError("Escolha Ollama Cloud ou um provedor online")
     if config["mode"]=="online" and config["provider"]=="ollama": raise ValueError("Escolha um provedor online")
     errors=[]
     for item in candidates:
