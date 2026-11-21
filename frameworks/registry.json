@@ -1,0 +1,46 @@
+{
+  "frameworks": {
+    "QBCore": {
+      "description": "Framework QBCore para FiveM.",
+      "official_repo": "https://github.com/qbcore-framework/qb-core",
+      "docs": [
+        "https://docs.qbcore.org/"
+      ],
+      "official_local_hint": "",
+      "default_ignore_patterns": [
+        "[qb]/**/html/build/",
+        "[qb]/**/web/build/",
+        "[standalone]/**"
+      ]
+    },
+    "ESX": {
+      "description": "Framework ESX Legacy.",
+      "official_repo": "https://github.com/esx-framework/esx_core",
+      "docs": [
+        "https://docs.esx-framework.org/en"
+      ],
+      "official_local_hint": "",
+      "default_ignore_patterns": [
+        "esx_*/web/build/",
+        "[standalone]/**"
+      ]
+    },
+    "vRP": {
+      "description": "Framework vRP para FiveM.",
+      "official_repo": "https://github.com/vRP-framework/vRP",
+      "docs": [
+        "https://vrp-framework.github.io/vRP/"
+      ],
+      "official_local_hint": "",
+      "default_ignore_patterns": [
+        "vrp_*/web/build/",
+        "[standalone]/**"
+      ]
+    }
+  },
+  "dependencies": {
+    "oxmysql": "https://github.com/overextended/oxmysql",
+    "PolyZone": "https://github.com/mkafrin/PolyZone",
+    "npwd": "https://github.com/project-error/npwd"
+  }
+}

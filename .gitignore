@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+.env.*
+
+# dados locais do app
+data/settings.json
+data/session.json
+data/projects.json
+data/history.jsonl
+data/*.local.json
+
+# exemplos podem ficar versionados
+!data/*.example.json
