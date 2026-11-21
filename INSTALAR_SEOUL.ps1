@@ -28,9 +28,11 @@ if (-not $python) {
 Step "Verificando Git"
 if (-not (Has git)) { Install-Winget "Git.Git" "Git" }
 if (-not (Has git)) { throw "Git nao encontrado apos instalacao. Reabra o terminal." }
-Step "Verificando Ollama"
-if (-not (Has ollama)) { Install-Winget "Ollama.Ollama" "Ollama" }
-if (-not (Has ollama)) { throw "Ollama nao encontrado apos instalacao. Reabra o terminal." }
+Step "Ollama opcional para modo local"
+if (-not (Has ollama)) {
+  $localChoice = Read-Host "Instalar Ollama para IA local? [s/N]"
+  if ($localChoice -match '^(s|sim|y|yes)$') { Install-Winget "Ollama.Ollama" "Ollama" }
+}
 Step "Preparando ambiente Python isolado"
 $venv = Join-Path $root ".venv"
 if (-not (Test-Path (Join-Path $venv "Scripts\python.exe"))) {
@@ -51,13 +53,15 @@ if (-not (Test-Path $settings) -and (Test-Path $example)) {
   $json.aider_command = (Join-Path $venv "Scripts\aider.exe")
   $json | ConvertTo-Json -Depth 10 | Set-Content $settings -Encoding UTF8
 }
-Step "Verificando modelo local"
-& ollama list
-Write-Host "Modelo sugerido: qwen2.5-coder:7b (download de varios GB; requer memoria e espaco livre)."
-$choice = Read-Host "Deseja baixar esse modelo agora? [s/N]"
-if ($choice -match '^(s|sim|y|yes)$') {
-  & ollama pull qwen2.5-coder:7b
-  if ($LASTEXITCODE -ne 0) { Write-Warning "Download do modelo falhou. Voce pode repetir depois." }
+if (Has ollama) {
+  Step "Verificando modelo local"
+  & ollama list
+  Write-Host "Modelo sugerido: qwen2.5-coder:7b (download de varios GB)."
+  $choice = Read-Host "Deseja baixar esse modelo agora? [s/N]"
+  if ($choice -match '^(s|sim|y|yes)$') {
+    & ollama pull qwen2.5-coder:7b
+    if ($LASTEXITCODE -ne 0) { Write-Warning "Download do modelo falhou. Voce pode repetir depois." }
+  }
 }
 Step "Instalacao concluida"
-Write-Host "Use INICIAR_SEOUL.bat para abrir o Seoul IA FiveM."
+Write-Host "Use ABRIR_PAINEL_SEOUL.bat para o painel web ou INICIAR_SEOUL.bat para o menu original."
