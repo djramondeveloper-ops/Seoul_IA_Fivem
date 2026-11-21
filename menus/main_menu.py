@@ -666,6 +666,7 @@ class MainMenu:
             f"Ollama forte ({project.heavy_model})",
             "Google Gemini (gemini/gemini-2.5-flash)",
             "OpenAI (openai/gpt-4.1-mini)",
+            "Automatico (Gemini > OpenAI > Ollama, conforme chaves disponiveis)",
             "Escolher modelo Ollama instalado",
             "Modelo personalizado (prefixo ollama/, gemini/ ou openai/)",
             "Como configurar chaves de API",
@@ -680,13 +681,21 @@ class MainMenu:
         elif idx == 3:
             model = "openai/gpt-4.1-mini"
         elif idx == 4:
+            if os.environ.get("GEMINI_API_KEY"):
+                model = "gemini/gemini-2.5-flash"
+            elif os.environ.get("OPENAI_API_KEY"):
+                model = "openai/gpt-4.1-mini"
+            else:
+                model = project.default_model
+            print(f"Provedor automatico selecionado: {model}")
+        elif idx == 5:
             models = self.ollama.list_models()
             if not models:
                 print("Nenhum modelo instalado no Ollama.")
                 pause()
                 return
             model = models[ask_choice("Escolha o modelo Ollama", models)]
-        elif idx == 5:
+        elif idx == 6:
             model = ask("Modelo completo (ex: gemini/gemini-2.5-flash)").strip()
             if not model.startswith(("ollama/", "gemini/", "openai/")):
                 print("Use o prefixo ollama/, gemini/ ou openai/.")
@@ -737,7 +746,7 @@ class MainMenu:
             return
         self._launch_prompt(
             project, session, settings,
-            "Responda apenas: SE OUL IA OK. Nao crie, altere ou exclua arquivos.",
+            "Responda apenas: SEOUL IA OK. Nao crie, altere ou exclua arquivos.",
             "Teste de conexao IA",
         )
 
