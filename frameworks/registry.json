@@ -1,5 +1,17 @@
 {
   "frameworks": {
+    "QBX": {
+      "description": "Qbox/QBX (qbx_core) com bridge QBCore opcional.",
+      "official_repo": "https://github.com/Qbox-project/qbx_core",
+      "docs": [
+        "https://docs.qbox.re/"
+      ],
+      "official_local_hint": "",
+      "default_ignore_patterns": [
+        "[qbx]/**/web/build/",
+        "[standalone]/**"
+      ]
+    },
     "QBCore": {
       "description": "Framework QBCore para FiveM.",
       "official_repo": "https://github.com/qbcore-framework/qb-core",
