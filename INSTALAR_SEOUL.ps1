@@ -80,7 +80,8 @@ if (-not (Test-Path $settings) -and (Test-Path $example)) {
   $json = Get-Content $example -Raw | ConvertFrom-Json
   $json.default_prefix = "seoul_"
   $json.aider_command = (Join-Path $venv "Scripts\aider.exe")
-  $json | ConvertTo-Json -Depth 10 | Set-Content $settings -Encoding UTF8
+  $jsonText = $json | ConvertTo-Json -Depth 10
+  [System.IO.File]::WriteAllText($settings, $jsonText, (New-Object System.Text.UTF8Encoding($false)))
 }
 if (Has ollama) {
   Step "Verificando modelo local"
