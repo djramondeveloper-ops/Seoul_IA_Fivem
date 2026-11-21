@@ -4,6 +4,7 @@ import json
 import os
 import secrets
 import threading
+import time
 import urllib.error
 import urllib.request
 import webbrowser
@@ -24,6 +25,31 @@ PROVIDERS = {
 }
 API_KEYS = {}  # only in process memory; never written to disk
 TOKEN = secrets.token_urlsafe(32)
+LOCAL_MODEL = "qwen2.5-coder:7b"
+PULL_LOCK = threading.Lock()
+PULL_STATE = {"status":"idle","model":LOCAL_MODEL,"completed":0,"total":0,"error":""}
+
+def ollama_model_installed():
+ try:
+  models=request_json("http://127.0.0.1:11434/api/tags",timeout=4).get("models",[])
+  return any(m.get("name","").split(":")[0] == LOCAL_MODEL.split(":")[0] and m.get("name","").split(":")[-1] == LOCAL_MODEL.split(":")[-1] for m in models)
+ except (RuntimeError,urllib.error.URLError,TimeoutError,OSError):
+  return None
+
+def pull_local_model():
+ try:
+  req=urllib.request.Request("http://127.0.0.1:11434/api/pull",data=json.dumps({"name":LOCAL_MODEL,"stream":True}).encode(),headers={"Content-Type":"application/json"},method="POST")
+  with urllib.request.urlopen(req,timeout=1800) as resp:
+   for line in resp:
+    if not line.strip(): continue
+    event=json.loads(line)
+    with PULL_LOCK:
+     PULL_STATE.update(status="downloading",completed=event.get("completed",PULL_STATE["completed"]),total=event.get("total",PULL_STATE["total"]))
+     if "error" in event: raise RuntimeError(str(event["error"]))
+  with PULL_LOCK: PULL_STATE.update(status="ready",error="")
+ except Exception as e:
+  with PULL_LOCK: PULL_STATE.update(status="error",error=str(e)[:300])
+
 
 def prefs():
  try:
@@ -78,6 +104,12 @@ class Handler(BaseHTTPRequestHandler):
   if not self.allowed(): return self.send({"error":"Origem bloqueada"},403)
   if self.path.startswith("/api/"):
    if not self.authorized(): return self.send({"error":"Não autorizado"},403)
+   if self.path=="/api/ollama/status":
+    installed=ollama_model_installed()
+    with PULL_LOCK: state=PULL_STATE.copy()
+    if state["status"] not in ("downloading","checking"):
+     state["status"]="ready" if installed else ("unavailable" if installed is None else "missing")
+    return self.send(state)
    if self.path=="/api/settings":
     return self.send({"settings":prefs(),"providers":{k:{"configured":k=="ollama" or bool(API_KEYS.get(k) or os.environ.get(v["env"] or "")),"default":v["default"]} for k,v in PROVIDERS.items()}})
    return self.send({"error":"Rota desconhecida"},404)
@@ -93,6 +125,20 @@ class Handler(BaseHTTPRequestHandler):
    size=int(self.headers.get("Content-Length","0"))
    if size<1 or size>200_000: return self.send({"error":"Tamanho inválido"},400)
    data=json.loads(self.rfile.read(size))
+   if self.path=="/api/ollama/install":
+    with PULL_LOCK:
+     if PULL_STATE["status"] in ("downloading","checking"): return self.send(PULL_STATE.copy())
+     PULL_STATE.update(status="checking",completed=0,total=0,error="")
+    installed=ollama_model_installed()
+    if installed is None:
+     with PULL_LOCK: PULL_STATE.update(status="unavailable",error="Ollama não está em execução. Abra o Ollama e tente novamente.")
+     return self.send(PULL_STATE.copy(),503)
+    if installed:
+     with PULL_LOCK: PULL_STATE.update(status="ready",error="")
+     return self.send(PULL_STATE.copy())
+    with PULL_LOCK: PULL_STATE.update(status="downloading")
+    threading.Thread(target=pull_local_model,daemon=True).start()
+    return self.send(PULL_STATE.copy(),202)
    if self.path=="/api/settings":
     new=prefs()
     for k in ("mode","provider","model","fallbacks"):
