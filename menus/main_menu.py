@@ -718,37 +718,67 @@ class MainMenu:
         pause()
 
     def test_ai_provider(self) -> None:
+        """Test provider without opening Aider or touching the FiveM repository."""
         import os
-        import shutil
-        import subprocess
+        import json
         import urllib.request
+        import urllib.error
         project, session, settings = self._require_project()
         if not project:
             return
         self._render_screen("Testar provedor de IA")
         model = session.active_model
         if model.startswith("gemini/"):
-            print("Gemini: chave " + ("configurada" if os.getenv("GEMINI_API_KEY") else "AUSENTE"))
+            provider = "gemini"
+            model_id = model.split("/", 1)[1]
+            key = os.environ.get("GEMINI_API_KEY", "")
         elif model.startswith("openai/"):
-            print("OpenAI: chave " + ("configurada" if os.getenv("OPENAI_API_KEY") else "AUSENTE"))
+            provider = "openai"
+            model_id = model.split("/", 1)[1]
+            key = os.environ.get("OPENAI_API_KEY", "")
         else:
-            try:
-                with urllib.request.urlopen(settings.ollama_api_base.rstrip("/") + "/api/tags", timeout=5) as resp:
-                    print("Ollama HTTP: " + ("OK" if resp.status == 200 else str(resp.status)))
-            except Exception as exc:
-                print(f"Ollama indisponivel: {exc}")
-        if not shutil.which(settings.aider_command):
-            print("Aider nao encontrado no PATH.")
+            provider = "ollama"
+            model_id = model.removeprefix("ollama/")
+            key = ""
+        if provider != "ollama" and not key:
+            print(f"Chave de API ausente para {provider}. Configure no Windows e reinicie o terminal.")
             pause()
             return
-        if not ask_bool("Executar teste real de resposta da IA (pode consumir creditos na nuvem)", False):
+        if not ask_bool("Enviar pergunta curta para testar o modelo (nuvem pode gerar custo)", False):
             pause()
             return
-        self._launch_prompt(
-            project, session, settings,
-            "Responda apenas: SEOUL IA OK. Nao crie, altere ou exclua arquivos.",
-            "Teste de conexao IA",
-        )
+        try:
+            if provider == "gemini":
+                url = "https://generativelanguage.googleapis.com/v1beta/models/" + model_id + ":generateContent"
+                payload = {"contents": [{"parts": [{"text": "Responda somente SEOUL OK"}]}]}
+                headers = {"x-goog-api-key": key}
+            elif provider == "openai":
+                url = "https://api.openai.com/v1/chat/completions"
+                payload = {"model": model_id, "messages": [{"role": "user", "content": "Responda somente SEOUL OK"}], "max_tokens": 64}
+                headers = {"Authorization": "Bearer " + key}
+            else:
+                url = settings.ollama_api_base.rstrip("/") + "/api/chat"
+                payload = {"model": model_id, "messages": [{"role": "user", "content": "Responda somente SEOUL OK"}], "stream": False}
+                headers = {}
+            request = urllib.request.Request(
+                url, data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json", **headers}, method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=90) as response:
+                result = json.loads(response.read(100000).decode("utf-8"))
+            if provider == "gemini":
+                answer = result["candidates"][0]["content"]["parts"][0]["text"]
+            elif provider == "openai":
+                answer = result["choices"][0]["message"]["content"]
+            else:
+                answer = result["message"]["content"]
+            print(f"Conexao {provider} OK. Resposta: {str(answer)[:250]}")
+        except urllib.error.HTTPError as exc:
+            # Do not echo the provider response; it can contain sensitive data.
+            print(f"Falha de API ({provider}): HTTP {exc.code}. Confira chave, modelo, cotas e faturamento.")
+        except (urllib.error.URLError, TimeoutError, OSError, KeyError, IndexError, ValueError) as exc:
+            print(f"Falha no teste ({provider}): {type(exc).__name__}. Confira conexao e modelo.")
+        pause()
 
     def download_models(self) -> None:
         self._render_screen("Baixar / atualizar modelos")
