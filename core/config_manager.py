@@ -22,7 +22,7 @@ class ConfigManager:
             HISTORY_FILE.write_text("", encoding="utf-8")
 
     def load_json(self, path: Path) -> Any:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8-sig"))
 
     def save_json(self, path: Path, payload: Any) -> None:
         path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
