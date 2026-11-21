@@ -1,4 +1,12 @@
-# MZ AI FIVEM Community v2
+# SEOUL IA FIVEM
+
+Desenvolvimento Seoul Developer. Baseado no projeto MZ AI FIVEM Community v2 de Mazus-Ofc; créditos originais preservados.
+
+## Detector automático de frameworks
+
+O módulo `core/auto_framework_detector.py` identifica evidências de Qbox, QBCore, ESX e vRP, além de integrações instaladas. O resultado é heurístico e deve ser confirmado antes de alterações.
+
+
 
 CLI local para trabalhar com projetos FiveM usando Ollama + Aider, com foco em segurança para usuário comum e escopo real para dev.
 
