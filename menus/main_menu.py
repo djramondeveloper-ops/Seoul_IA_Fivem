@@ -140,24 +140,23 @@ class MainMenu:
         names = self.frameworks.names()
         if default_name not in names:
             names = [default_name] + names
-        options = (["Detectar automaticamente pela pasta da base"] if project_path else []) + names
-        idx = ask_choice("Escolha o framework", options)
-        if project_path and idx == 0:
+        if project_path:
             try:
                 result = detect_frameworks(project_path)
                 detected = {"qbox": "QBX", "qbcore": "QBCore", "esx": "ESX", "vrp": "vRP"}.get(result["primary_framework"])
                 if detected in names:
-                    print(f"Framework identificado: {detected}")
+                    print(f"Framework detectado automaticamente: {detected}")
                     if result["hybrid_or_bridge_possible"]:
-                        print("Possível bridge ou múltiplos frameworks; confirme a identificação.")
-                    if ask_bool("Confirmar framework detectado", True):
+                        print("Aviso: foram encontrados sinais de bridge ou multiplos frameworks.")
+                    if ask_bool("Usar o framework detectado", True):
                         return detected
                 else:
-                    print("Detecção inconclusiva. Selecione manualmente.")
+                    print("Nao foi possivel identificar o framework com confianca.")
             except (OSError, ValueError) as exc:
-                print(f"Detecção indisponível: {exc}. Selecione manualmente.")
-            return names[ask_choice("Escolha manualmente o framework", names)]
-        return options[idx]
+                print(f"Falha na deteccao: {exc}")
+            print("Escolha manualmente caso a deteccao nao corresponda a sua base.")
+        idx = ask_choice("Escolha o framework", names)
+        return names[idx]
 
     def setup_and_doctor(self) -> None:
         self._render_screen("Configuração inicial")
@@ -207,7 +206,7 @@ class MainMenu:
         self._render_screen("Cadastrar projeto")
         settings = self.config.load_settings()
         name = ask("Nome do projeto")
-        repo_path = ask("Caminho do repo")
+        repo_path = ask("Caminho do repo").strip().strip('"').strip()
         if not Path(repo_path).exists():
             print("Esse caminho não existe.")
             pause()
