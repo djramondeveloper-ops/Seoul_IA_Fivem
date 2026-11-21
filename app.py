@@ -14,7 +14,7 @@ try:
 except Exception:
     pass
 
-from mz_ai_fivem import run
+from seoul_ia_fivem import run
 
 if __name__ == '__main__':
     run()
