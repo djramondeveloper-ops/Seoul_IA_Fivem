@@ -74,6 +74,28 @@ class SeoulWebTests(unittest.TestCase):
         self.assertEqual(json.loads(body)["provider"], "gemini")
         self.assertEqual(len(json.loads(body)["attempts"]), 1)
 
+    def test_ollama_installed_does_not_download(self):
+        with patch.object(seoul_web, "ollama_model_installed", return_value=True), patch.object(seoul_web.threading, "Thread") as thread:
+            code, body = self.call("/api/ollama/install", {})
+        self.assertEqual(code, 200)
+        self.assertEqual(json.loads(body)["status"], "ready")
+        thread.assert_not_called()
+
+    def test_ollama_missing_starts_download(self):
+        with patch.object(seoul_web, "ollama_model_installed", return_value=False), patch.object(seoul_web.threading, "Thread") as thread:
+            code, body = self.call("/api/ollama/install", {})
+        self.assertEqual(code, 202)
+        self.assertEqual(json.loads(body)["status"], "downloading")
+        thread.assert_called_once()
+        with seoul_web.PULL_LOCK:
+            seoul_web.PULL_STATE["status"] = "idle"
+
+    def test_ollama_unavailable_reports_error(self):
+        with patch.object(seoul_web, "ollama_model_installed", return_value=None):
+            code, body = self.call("/api/ollama/install", {})
+        self.assertEqual(code, 503)
+        self.assertEqual(json.loads(body)["status"], "unavailable")
+
     def test_detector_unknown_folder(self):
         code, body = self.call("/api/detect", {"path": "/a/path/that/does/not/exist"})
         self.assertEqual(code, 400)
