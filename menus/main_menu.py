@@ -133,19 +133,37 @@ class MainMenu:
             rows.append(("Última tarefa", session.last_action_label))
         render_header(title=title, rows=rows, subtitle=subtitle or title)
 
-    def _choose_framework_name(self, default_name: str) -> str:
+    def _choose_framework_name(self, default_name: str, project_path: str = "") -> str:
         names = self.frameworks.names()
         if default_name not in names:
             names = [default_name] + names
-        idx = ask_choice("Escolha o framework", names)
-        return names[idx]
+        options = (["Detectar automaticamente pela pasta da base"] if project_path else []) + names
+        idx = ask_choice("Escolha o framework", options)
+        if project_path and idx == 0:
+            try:
+                result = detect_frameworks(project_path)
+                detected = {"qbox": "QBX", "qbcore": "QBCore", "esx": "ESX", "vrp": "vRP"}.get(result["primary_framework"])
+                if detected in names:
+                    print(f"Framework identificado: {detected}")
+                    if result["hybrid_or_bridge_possible"]:
+                        print("Possível bridge ou múltiplos frameworks; confirme a identificação.")
+                    if ask_bool("Confirmar framework detectado", True):
+                        return detected
+                else:
+                    print("Detecção inconclusiva. Selecione manualmente.")
+            except (OSError, ValueError) as exc:
+                print(f"Detecção indisponível: {exc}. Selecione manualmente.")
+            return names[ask_choice("Escolha manualmente o framework", names)]
+        return options[idx]
 
     def setup_and_doctor(self) -> None:
         self._render_screen("Configuração inicial")
         settings = self.config.load_settings()
         settings.ollama_api_base = ask("URL do Ollama", settings.ollama_api_base)
         settings.aider_command = ask("Comando do Aider", settings.aider_command)
-        settings.default_framework = self._choose_framework_name(settings.default_framework)
+        print("O framework da base será identificado automaticamente ao cadastrar um projeto.")
+        if ask_bool("Definir framework padrão manualmente agora", False):
+            settings.default_framework = self._choose_framework_name(settings.default_framework, repo_path)
         settings.default_db = ask("Banco padrão", settings.default_db)
         settings.default_prefix = ask("Prefixo custom padrão", settings.default_prefix)
         settings.default_model = ask("Modelo rápido padrão", settings.default_model)
