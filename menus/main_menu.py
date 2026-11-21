@@ -3,6 +3,7 @@ from pathlib import Path
 from core.config_manager import ConfigManager
 from core.env_manager import EnvironmentManager
 from core.framework_manager import FrameworkManager
+from core.auto_framework_detector import detect_frameworks
 from core.git_manager import GitManager
 from core.history_manager import HistoryManager
 from core.io_utils import ask, ask_bool, ask_choice, ask_multiline, pause, print_block, render_header
@@ -55,6 +56,7 @@ class MainMenu:
                 "Baixar / atualizar modelos recomendados",
                 "Configurar referência do framework no projeto ativo",
                 "Histórico recente / continuar última tarefa",
+                "Identificar framework automaticamente",
             ]
             if settings.show_advanced_menu:
                 options.append("Modo avançado (prompt livre)")
@@ -86,12 +88,28 @@ class MainMenu:
                 self.configure_project_reference()
             elif choice == 12:
                 self.history_menu()
+            elif choice == 13:
+                self.detect_project_framework()
             else:
-                if settings.show_advanced_menu and choice == 13:
+                if settings.show_advanced_menu and choice == 14:
                     self.advanced_mode()
                 else:
                     print("Até mais.")
                     return
+
+    def detect_project_framework(self) -> None:
+        import json
+        _, project = self._session_project()
+        if not project:
+            print("Selecione um projeto ativo primeiro.")
+            pause()
+            return
+        try:
+            result = detect_frameworks(project.repo_path)
+            print_block("Detecção automática de framework", json.dumps(result, ensure_ascii=False, indent=2))
+        except (OSError, ValueError) as exc:
+            print(f"Falha na detecção: {exc}")
+        pause()
 
     def _session_project(self) -> tuple[Session, Project | None]:
         session = self.config.load_session()
