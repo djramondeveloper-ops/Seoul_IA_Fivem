@@ -8,7 +8,7 @@ class Settings:
     aider_command: str = "aider"
     default_framework: str = "QBCore"
     default_db: str = "oxmysql"
-    default_prefix: str = "mz_"
+    default_prefix: str = "seoul_"
     default_model: str = "qwen2.5-coder:7b"
     heavy_model: str = "qwen3-coder:30b"
     safe_mode: bool = True
