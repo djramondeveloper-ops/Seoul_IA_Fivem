@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import seoul_web
+from core.config_manager import ConfigManager
 
 
 class SeoulWebTests(unittest.TestCase):
@@ -40,6 +41,12 @@ class SeoulWebTests(unittest.TestCase):
                 return r.status, r.read().decode()
         except urllib.error.HTTPError as e:
             return e.code, e.read().decode()
+
+    def test_windows_bom_settings_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "settings.json"
+            path.write_bytes(b"\\xef\\xbb\\xbf" + b'{"default_prefix":"seoul_"}')
+            self.assertEqual(ConfigManager().load_json(path)["default_prefix"], "seoul_")
 
     def test_home_serves_ui(self):
         code, html = self.call("/")
