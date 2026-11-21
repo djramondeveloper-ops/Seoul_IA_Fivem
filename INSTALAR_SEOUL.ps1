@@ -34,7 +34,7 @@ if (-not (Has ollama)) { throw "Ollama nao encontrado apos instalacao. Reabra o 
 Step "Preparando ambiente Python isolado"
 $venv = Join-Path $root ".venv"
 if (-not (Test-Path (Join-Path $venv "Scripts\python.exe"))) {
-  & $python[0] @($python | Select-Object -Skip 1) -m venv $venv
+  if ($python.Count -eq 2) { & py -3.11 -m venv $venv } else { & python -m venv $venv }
   if ($LASTEXITCODE -ne 0) { throw "Falha ao criar ambiente Python." }
 }
 $vp = Join-Path $venv "Scripts\python.exe"
