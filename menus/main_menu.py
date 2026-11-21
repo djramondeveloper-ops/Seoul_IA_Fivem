@@ -46,6 +46,7 @@ class MainMenu:
                 "Primeira configuração / verificar ambiente",
                 "Cadastrar projeto",
                 "Selecionar projeto ativo",
+                "Excluir cadastro de projeto",
                 "Ver projeto ativo",
                 "Analisar meus scripts customizados",
                 "Revisar um resource / pasta / arquivo",
@@ -69,29 +70,31 @@ class MainMenu:
             elif choice == 2:
                 self.select_project()
             elif choice == 3:
-                self.show_active_project()
+                self.delete_project()
             elif choice == 4:
-                self.run_custom_analysis()
+                self.show_active_project()
             elif choice == 5:
-                self.review_scope()
+                self.run_custom_analysis()
             elif choice == 6:
-                self.debug_error()
+                self.review_scope()
             elif choice == 7:
-                self.create_resource()
+                self.debug_error()
             elif choice == 8:
-                self.compare_with_framework()
+                self.create_resource()
             elif choice == 9:
-                self.switch_model()
+                self.compare_with_framework()
             elif choice == 10:
-                self.download_models()
+                self.switch_model()
             elif choice == 11:
-                self.configure_project_reference()
+                self.download_models()
             elif choice == 12:
-                self.history_menu()
+                self.configure_project_reference()
             elif choice == 13:
+                self.history_menu()
+            elif choice == 14:
                 self.detect_project_framework()
             else:
-                if settings.show_advanced_menu and choice == 14:
+                if settings.show_advanced_menu and choice == 15:
                     self.advanced_mode()
                 else:
                     print("Até mais.")
@@ -163,7 +166,7 @@ class MainMenu:
         settings.aider_command = ask("Comando do Aider", settings.aider_command)
         print("O framework da base será identificado automaticamente ao cadastrar um projeto.")
         if ask_bool("Definir framework padrão manualmente agora", False):
-            settings.default_framework = self._choose_framework_name(settings.default_framework, repo_path)
+            settings.default_framework = self._choose_framework_name(settings.default_framework)
         settings.default_db = ask("Banco padrão", settings.default_db)
         settings.default_prefix = ask("Prefixo custom padrão", settings.default_prefix)
         settings.default_model = ask("Modelo rápido padrão", settings.default_model)
@@ -210,7 +213,7 @@ class MainMenu:
             pause()
             return
 
-        framework = self._choose_framework_name(settings.default_framework)
+        framework = self._choose_framework_name(settings.default_framework, repo_path)
         database = ask("Banco", settings.default_db)
         custom_prefix = ask("Prefixo custom", settings.default_prefix)
 
@@ -253,6 +256,31 @@ class MainMenu:
         session.active_model = project.default_model
         self.config.save_session(session)
         print(f"Projeto '{project.name}' cadastrado e ativado.")
+        pause()
+
+    def delete_project(self) -> None:
+        self._render_screen("Excluir cadastro de projeto")
+        projects = self.projects.list_projects()
+        if not projects:
+            print("Nenhum projeto cadastrado.")
+            pause()
+            return
+        idx = ask_choice("Selecione o cadastro a excluir (arquivos da base serão preservados)", [f"{p.name} ({p.repo_path})" for p in projects] + ["Cancelar"])
+        if idx == len(projects):
+            return
+        project = projects[idx]
+        print(f"Cadastro: {project.name} | Pasta preservada: {project.repo_path}")
+        if not ask_bool("Confirmar exclusão SOMENTE do cadastro", False):
+            print("Operação cancelada.")
+            pause()
+            return
+        if self.projects.remove_project(project.id):
+            session = self.config.load_session()
+            if session.active_project_id == project.id:
+                session.active_project_id = ""
+                session.active_model = ""
+                self.config.save_session(session)
+            print("Cadastro removido. Os arquivos da base FiveM não foram apagados.")
         pause()
 
     def _reference_setup_for_framework(self, framework: str, quick: bool = False) -> tuple[str, str, str]:
