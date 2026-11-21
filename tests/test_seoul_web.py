@@ -1,0 +1,92 @@
+"""Integration smoke tests for the Seoul local web API (no external API keys)."""
+import json
+import tempfile
+import threading
+import unittest
+import urllib.error
+import urllib.request
+from pathlib import Path
+from unittest.mock import patch
+
+import seoul_web
+
+
+class SeoulWebTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.server = seoul_web.ThreadingHTTPServer(("127.0.0.1", 0), seoul_web.Handler)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+        cls.base = "http://127.0.0.1:" + str(cls.server.server_address[1])
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.thread.join(timeout=3)
+
+    def call(self, path, payload=None, token=True):
+        headers = {"Host": "127.0.0.1", "Content-Type": "application/json"}
+        if token:
+            headers["X-Seoul-Token"] = seoul_web.TOKEN
+        req = urllib.request.Request(
+            self.base + path,
+            data=None if payload is None else json.dumps(payload).encode(),
+            headers=headers,
+            method="GET" if payload is None else "POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                return r.status, r.read().decode()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read().decode()
+
+    def test_home_serves_ui(self):
+        code, html = self.call("/")
+        self.assertEqual(code, 200)
+        self.assertIn("seoul", html.lower())
+        self.assertIn("IA Local", html)
+
+    def test_authentication_required(self):
+        code, _ = self.call("/api/settings", token=False)
+        self.assertEqual(code, 403)
+
+    def test_settings_read(self):
+        code, body = self.call("/api/settings")
+        self.assertEqual(code, 200)
+        self.assertIn("ollama", json.loads(body)["providers"])
+
+    def test_chat_ollama_mocked(self):
+        with patch.object(seoul_web, "prefs", return_value={"mode": "local", "provider": "ollama", "model": "test", "fallbacks": []}), patch.object(seoul_web, "chat", return_value="resposta real simulada"):
+            code, body = self.call("/api/chat", {"message": "Olá", "history": []})
+        self.assertEqual(code, 200)
+        self.assertEqual(json.loads(body)["answer"], "resposta real simulada")
+
+    def test_auto_fallback_mocked(self):
+        def fake_chat(provider, model, messages):
+            if provider == "ollama":
+                raise RuntimeError("offline")
+            return "fallback OK"
+        config = {"mode": "auto", "provider": "ollama", "model": "test", "fallbacks": [{"provider": "gemini", "model": "test-model"}]}
+        with patch.object(seoul_web, "prefs", return_value=config), patch.object(seoul_web, "chat", side_effect=fake_chat):
+            code, body = self.call("/api/chat", {"message": "Teste", "history": []})
+        self.assertEqual(code, 200)
+        self.assertEqual(json.loads(body)["provider"], "gemini")
+        self.assertEqual(len(json.loads(body)["attempts"]), 1)
+
+    def test_detector_unknown_folder(self):
+        code, body = self.call("/api/detect", {"path": "/a/path/that/does/not/exist"})
+        self.assertEqual(code, 400)
+
+    def test_detector_qbox(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            resource = Path(tmp) / "resources" / "qbx_core"
+            resource.mkdir(parents=True)
+            (resource / "fxmanifest.lua").write_text("fx_version 'cerulean'", encoding="utf-8")
+            code, body = self.call("/api/detect", {"path": tmp})
+        self.assertEqual(code, 200)
+        self.assertEqual(json.loads(body)["primary_framework"], "qbox")
+
+
+if __name__ == "__main__":
+    unittest.main()
