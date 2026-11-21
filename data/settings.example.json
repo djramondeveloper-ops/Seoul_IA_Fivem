@@ -3,7 +3,7 @@
   "aider_command": "aider",
   "default_framework": "QBCore",
   "default_db": "oxmysql",
-  "default_prefix": "mz_",
+  "default_prefix": "seoul_",
   "default_model": "qwen2.5-coder:7b",
   "heavy_model": "qwen3-coder:30b",
   "safe_mode": true,
